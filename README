@@ -1,0 +1,11 @@
+Software Language Processing/IR++
+
+Our group decided to markup documents to demonstrate the issues that IR and SLP techniques will face when dealing with software artifacts. We tried to markup the documents from the point of view of bug localization/mapping.
+
+bin2c.c is a C program from the Linux Kernel where we added comments about it.
+bug1.pdf.pdf is an android bug where we annotated issues that IR fight face dealing with such a bug.
+freebsd.org is a freebsd mailinglist thread.
+
+Slides: https://docs.google.com/presentation/d/1MPM3IU06E0ztILdchyKDnvi-YqMITq8VomAzQgmcph8/
+
+Notes: https://docs.google.com/document/d/171oQDk-NOhN6oj4c9J1RqVz-u2ZiPPVwaFgvZfuYC1g/edit

@@ -1,0 +1,550 @@
+http://lists.freebsd.org/pipermail/freebsd-security/2005-August/003116.html
+:      Thu, 18 Aug 2005 16:48:18 +0200
+From:      Attila Nagy <bra@fsn.hu>
+[[^aliasing]]
+To:        freebsd-security@FreeBSD.org
+Subject:   Closing information leaks in jails?
+[[^ subjects can change]]
+Message-ID:  <43049FB2.1030203@fsn.hu>
+[[^ unique identifier]]
+
+Hello,
+[[^salutation]]
+
+I'm wondering about closing some information leaks in FreeBSD jails from 
+the "outside world".
+[[^ ok summary -- has some keywords, use question words]]
+[[^ jails means like a chroot in unix -- sandboxing]]
+[[^ outside world -- english idiom]]
+
+Not that critical (depends on the application), but a simple user, with 
+restricted devfs in the jail (devfsrules_jail for example from 
+                              [[^a kind of artifact or change, example
+                              config]]
+[[^jail -- chroot -- sandbox -- general purpose wordnet?]]
+/etc/defaults/devfs.rules) can figure out the following:
+[[^ file embedded using slashes and periods]]
+[[file names don't always localize the bug, this is an example]]
+- network interfaces related data, via ifconfig, which contains 
+  [[^ device NI]]                                    [[^ command]]
+everything, but the primary IP address of the interfaces. It seems
+that 
+                    
+alias IPs can be viewed:
+[[^ alias IPs -- concept]]
+bge0: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> mtu 1500
+	options=1a<TXCSUM,VLAN_MTU,VLAN_HWTAGGING>
+	ether 00:12:79:3d:83:c2
+	media: Ethernet autoselect (100baseTX <full-duplex>)
+	status: active
+lo0: flags=8049<UP,LOOPBACK,RUNNING,MULTICAST> mtu 16384
+	inet 127.0.0.2 netmask 0xff000000
+[[^ output from a console command, full of tokens]]
+[[Could be pulled out with knowledge of ifconfig could be used for bug
+localization/mapping]]
+
+[[dictionary techniques could work..]]
+
+[[Scenarios of information leak]]
+- the arp table via arp, which does contain the above interface 
+addresses. This can be used for example to detect other machines on the 
+same subnet, which communicate with the host machine.
+[[^ networking terms and compounded bi-gram]]
+- full dmesg output after boot and the kernel buffer when it overflows 
+(can contain sensitive information)
+[[^dmesg is a command]]
+- information about geom providers (at least geom mirror list works)
+- the list of the loaded kernel modules via kldstat
+- some interesting information about the network related stuff via netstat
+- information about configured swap space via swapinfo
+- NFS related statistics via nfsstat
+- a lot of interesting stuff via sysctl
+[[^ list layout]]
+[[lotsa juicy keywords]]
+
+[[Issue: the author was talking about a jail, not necessarily networking..]]
+
+[[Protoype bug report]]
+
+and maybe more, I can't think of currently.
+
+Are there any ways to close (some of) these?
+[[close THE LEAK, not a bug report]]
+Thanks,
+
+-- [[Signature!]]
+Attila Nagy                                   e-mail: Attila.Nagy@fsn.hu
+Adopt a directory on our free software   phone @work: +361 371 3536
+server! http://www.fsn.hu/?f=brick             cell.: +3630 306 6758
+[[^help you to identify the author (scoop this)]]
+
+[[^ issues of trust or consistency (email client)]]
+Date:      Thu, 18 Aug 2005 17:46:58 +0200
+From:      Attila Nagy <bra@fsn.hu>
+To:        Benjamin Lutz <benlutz@datacomm.ch>
+Cc:        freebsd-security@FreeBSD.org
+Subject:   Re: Closing information leaks in jails?
+[[^ Re: reply changes the subject]]
+Message-ID:  <4304AD72.2060504@fsn.hu>
+In-Reply-To: <4304A6C6.6090006@datacomm.ch>
+[[^ build a thread, not always there (filled out via reply)]]
+References:  <43049FB2.1030203@fsn.hu> <4304A6C6.6090006@datacomm.ch>
+
+Benjamin Lutz wrote:
+>>- full dmesg output after boot and the kernel buffer when it overflows
+>>(can contain sensitive information)
+> If it's sensitive in so far as it endangers the privacy of local
+> non-jailed users, I think that's a bug that'd need fixing.
+[[^ inline comments >>]]
+[[^ this is sometimes the context, short response. Double weights terms]]
+[[If we looked at the context of sentences, sentiment analysis can
+help identify reponses. Rafael Lotufo mentioned his ICSM 2012 (you
+must attend)]]
+
+There are many points from this issue can be observed. Let's take a 
+shell server, or a CGI server. Take the latter for an example.
+[[^ examples shell server, CGI server. Know the terms are ..]]
+[[^ points could be noise, issue could be noise etc. Points could be
+geometry]]
+
+
+> I'm not sure why hiding the mentioned information is bad. It only
+Not bad at all. The bad thing is that they are available and the 
+administrator can't (AFAIK, without any hacking) hide them.  :)
+[[^ emoticon, response/opinion]]
+
+
+> contains machine-specific data, and at best the private information a
+> jailed user will be able to figure out is the machine's usage patterns
+> (yes, crypto folks don't like that, but c'mon...). Hiding that data
+> isn't real security.
+Hmm. Why ifconfig doesn't tell me the main IP address of an interface?
+BTW, this is not usage pattern, and ARP data (MAC addresses, you can do 
+interesting stuff with them, for example guess what kind of operating 
+system and hardware run the given IP, etc) is not either.
+[[^ have fun running a POS tagger on this]]
+
+And not showing the MAC and IP addresses for all of your users can be 
+real security.
+[[^ sentence fragments, sarcasm]]
+
+> Besides, the user can only gain the data if he can execute the binaries
+> that provide it. Why not remove, say, the geom programs (and at the same
+> time make it impossible to execute new programs? Eg only make the
+> home/tmp dirs writeable, but put those on a noexec partition). That
+> should make it hard enough to access geom data.
+As I said there are many different cases. In the case of a CGI server, 
+you must make those executables executable. And the worst part is that 
+your users can modify them without too much control.
+
+In another example, when you would like to provide "virtual machines", 
+where the user can manage his jail, this "solution" is also not good.
+
+I think it is pointless to ask why would hiding the ARP table, or the 
+system's IP addresses is sane or not, when currently you can't do a 
+netstat -an from inside a jail and also can't do many other things.
+
+Oh, and you can do iostat! :)
+[[^ another issue identified]]
+[[emoticons + smilies, is he positive]]
+-- 
+Attila Nagy                                   e-mail: Attila.Nagy@fsn.hu
+Adopt a directory on our free software   phone @work: +361 371 3536
+server! http://www.fsn.hu/?f=brick             cell.: +3630 306 6758
+
+
+Date:      Thu, 18 Aug 2005 22:44:42 +0000 (GMT)
+From:      Nate Nielsen <nielsen-list@memberwebs.com>
+To:        Attila Nagy <bra@fsn.hu>
+Cc:        freebsd-security@FreeBSD.org
+Subject:   Re: Closing information leaks in jails?
+Message-ID:  <20050818224438.2084D70DBC6@mail.npubs.com>
+References:  <43049FB2.1030203@fsn.hu>
+
+
+Attila Nagy wrote:
+> Hello,
+> 
+> I'm wondering about closing some information leaks in FreeBSD jails from
+> the "outside world".
+> 
+> Not that critical (depends on the application), but a simple user, with
+> restricted devfs in the jail (devfsrules_jail for example from
+> /etc/defaults/devfs.rules) can figure out the following:
+> 
+> - network interfaces related data, via ifconfig, which contains
+> everything, but the primary IP address of the interfaces. It seems that
+> alias IPs can be viewed:
+> bge0: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> mtu 1500
+>     options=1a<TXCSUM,VLAN_MTU,VLAN_HWTAGGING>
+>     ether 00:12:79:3d:83:c2
+>     media: Ethernet autoselect (100baseTX <full-duplex>)
+>     status: active
+> lo0: flags=8049<UP,LOOPBACK,RUNNING,MULTICAST> mtu 16384
+>     inet 127.0.0.2 netmask 0xff000000
+[[^giant quote]]
+
+For me this only shows the alias assigned to the jail.
+[[^ tiny response]]
+
+> - full dmesg output after boot and the kernel buffer when it overflows
+> (can contain sensitive information)
+
+Yes, this is important. Use:
+sysctl -w security.bsd.unprivileged_read_msgbuf=0
+[[^ commandline]]
+> - information about geom providers (at least geom mirror list works)
+> - the list of the loaded kernel modules via kldstat
+> - some interesting information about the network related stuff via netstat
+
+netstat works, but it limits itself to the jail pretty well. In
+particular 'netstat -r' and friends  don't work. The normal 'netstat -a'
+only shows connections to the current jail. It does show the output from
+'netstat -m' and those sort of things, but those say nothing over the
+network load of the current machine.
+[[^inlined commands]]
+[[systems knowledge is required]]
+> - information about configured swap space via swapinfo
+
+Not sure I see how this could be used against you.
+
+> - NFS related statistics via nfsstat
+
+Again only statistics. Not sure how this is a problem.
+
+> - a lot of interesting stuff via sysctl
+
+Yes, there's a lot there, but a lot *is* filtered out in a jail.
+                                    [[^bolding]]
+> Are there any ways to close (some of) these?
+
+My suggestion would be to file bugs one by one for each piece of
+information that causes you concern along with the reasoning of why that
+information is dangerous or sensitive.
+
+The FreeBSD developers have been atentive to these things, and have
+added functionality in almost each release to minimize information
+available in a jail. So pointing specific issues out will probably get
+good results.
+
+Cheers,
+Nate
+
+
+
+Date:      Thu, 18 Aug 2005 17:18:30 +0200
+From:      Benjamin Lutz <benlutz@datacomm.ch>
+To:        Attila Nagy <bra@fsn.hu>
+Cc:        freebsd-security@FreeBSD.org
+Subject:   Re: Closing information leaks in jails?
+Message-ID:  <4304A6C6.6090006@datacomm.ch>
+In-Reply-To: <43049FB2.1030203@fsn.hu>
+References:  <43049FB2.1030203@fsn.hu>
+
+Next in thread | Previous in thread | Raw E-Mail | Index | Archive | Help
+
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigBCB6E73722D46EBC03262C02
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+
+Attila Nagy wrote:
+> Hello,
+>
+> I'm wondering about closing some information leaks in FreeBSD jails from
+> the "outside world".
+>
+> Not that critical (depends on the application), but a simple user, with
+> restricted devfs in the jail (devfsrules_jail for example from
+> /etc/defaults/devfs.rules) can figure out the following:
+
+[...]
+
+> - full dmesg output after boot and the kernel buffer when it overflows
+> (can contain sensitive information)
+
+If it's sensitive in so far as it endangers the privacy of local
+non-jailed users, I think that's a bug that'd need fixing.
+
+> - information about geom providers (at least geom mirror list works)
+> - the list of the loaded kernel modules via kldstat
+> - some interesting information about the network related stuff via netstat
+> - information about configured swap space via swapinfo
+> - NFS related statistics via nfsstat
+> - a lot of interesting stuff via sysctl
+
+I'm not sure why hiding the mentioned information is bad. It only
+contains machine-specific data, and at best the private information a
+jailed user will be able to figure out is the machine's usage patterns
+(yes, crypto folks don't like that, but c'mon...). Hiding that data
+isn't real security.
+
+Besides, the user can only gain the data if he can execute the binaries
+that provide it. Why not remove, say, the geom programs (and at the same
+time make it impossible to execute new programs? Eg only make the
+home/tmp dirs writeable, but put those on a noexec partition). That
+should make it hard enough to access geom data.
+
+Cheers
+Benjamin
+
+--------------enigBCB6E73722D46EBC03262C02
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.0 (Darwin)
+
+iD8DBQFDBKbJgShs4qbRdeQRAqZxAJ4gqQ+8Q8hbAiSCyGlleD6yBA/owgCeO8A6
+Bbdm1tuPFd25sMgJPCFapIA=
+=boxf
+-----END PGP SIGNATURE-----
+
+--------------enigBCB6E73722D46EBC03262C02--
+
+
+Date:      Fri, 19 Aug 2005 10:20:14 +0200
+From:      Attila Nagy <bra@fsn.hu>
+To:        nielsen@memberwebs.com
+Cc:        freebsd-security@FreeBSD.org
+Subject:   Re: Closing information leaks in jails?
+Message-ID:  <4305963E.8070404@fsn.hu>
+In-Reply-To: <20050818224438.2084D70DBC6@mail.npubs.com>
+References:  <43049FB2.1030203@fsn.hu> <20050818224438.2084D70DBC6@mail.npubs.com>
+
+Next in thread | Previous in thread | Raw E-Mail | Index | Archive | Help
+
+Nate Nielsen wrote:
+> For me this only shows the alias assigned to the jail.
+You are right.
+
+>>- full dmesg output after boot and the kernel buffer when it overflows
+>>(can contain sensitive information)
+> Yes, this is important. Use:
+> sysctl -w security.bsd.unprivileged_read_msgbuf=0
+Hmm, thanks, that was a new info for me.
+
+> only shows connections to the current jail. It does show the output from
+> 'netstat -m' and those sort of things, but those say nothing over the
+> network load of the current machine.
+Yes, they are not that critical.
+
+>>- information about configured swap space via swapinfo
+> Not sure I see how this could be used against you.
+Nothing bad, but I can imagine a situation where the operator of the 
+host machine wants to hide everything about the real specifications. For 
+example if the machine is overbooked and the swap is lightly or heavily 
+used, etc.
+
+>>- NFS related statistics via nfsstat
+> Again only statistics. Not sure how this is a problem.
+For me, they are not, just another thing, which could be guessed about 
+the host and not the jail (if I am right).
+
+>>- a lot of interesting stuff via sysctl
+> Yes, there's a lot there, but a lot *is* filtered out in a jail.
+Yep.
+
+> My suggestion would be to file bugs one by one for each piece of
+> information that causes you concern along with the reasoning of why that
+> information is dangerous or sensitive.
+The biggest issue for me was dmesg and the ARP table. All of the others 
+were there, because I wanted to know, what else could an unprivileged 
+user guess about the host.
+
+I will open a PR with the ARP table issue.
+
+> The FreeBSD developers have been atentive to these things, and have
+> added functionality in almost each release to minimize information
+> available in a jail. So pointing specific issues out will probably get
+> good results.
+Yes, last time I checked these, the user in a jail could list all of the 
+mounted file systems. Now it is less chatty. :)
+
+Thanks,
+
+-- 
+Attila Nagy                                   e-mail: Attila.Nagy@fsn.hu
+Adopt a directory on our free software   phone @work: +361 371 3536
+server! http://www.fsn.hu/?f=brick             cell.: +3630 306 6758
+
+
+Date:      Fri, 19 Aug 2005 10:46:47 +0200
+From:      Pawel Malachowski <pawmal-posting@freebsd.lublin.pl>
+To:        freebsd-security@freebsd.org
+Subject:   Re: Closing information leaks in jails?
+Message-ID:  <20050819084647.GA53116@shellma.zin.lublin.pl>
+In-Reply-To: <20050818224438.2084D70DBC6@mail.npubs.com>
+References:  <43049FB2.1030203@fsn.hu> <20050818224438.2084D70DBC6@mail.npubs.com>
+
+Next in thread | Previous in thread | Raw E-Mail | Index | Archive | Help
+
+On Thu, Aug 18, 2005 at 10:44:42PM +0000, Nate Nielsen wrote:
+
+> netstat works, but it limits itself to the jail pretty well. In
+> particular 'netstat -r' and friends  don't work. The normal 'netstat -a'
+> only shows connections to the current jail. It does show the output from
+> 'netstat -m' and those sort of things, but those say nothing over the
+> network load of the current machine.
+
+One can use bmon application in jail to graph network activity in real time,
+for example:
+
+% sysctl -a | grep jail
+security.jail.set_hostname_allowed: 0
+security.jail.socket_unixiproute_only: 1
+security.jail.sysvipc_allowed: 0
+security.jail.getfsstatroot_only: 1
+security.jail.allow_raw_sockets: 0
+security.jail.chflags_allowed: 0
+security.jail.jailed: 1
+% id
+uid=11226(pawmal) gid=10999(pawmal) groups=10999(pawmal)
+% bmon
+  #   Interface                RX Rate         RX #     TX Rate         TX #
+....................................................................................
+xxx (source: local)
+  0   fxp0                       1.29KiB         23      32.51KiB         34
+  1   lo0                      442.00B            2     442.00B            2
+  2   vlan3                    660.00B           11      32.40KiB         27
+  3   vlan4                    419.00B            5       0.00B            0
+  4   vlan6                      0.00B            0       0.00B            0
+  5   vlan9                      0.00B            0       0.00B            0
+
+
+-- 
+Pawe³ Ma³achowski
+
+
+Date:      Fri, 19 Aug 2005 11:43:19 +0200
+From:      Jeremie Le Hen <jeremie@le-hen.org>
+To:        Attila Nagy <bra@fsn.hu>
+Cc:        freebsd-security@FreeBSD.org
+Subject:   Re: Closing information leaks in jails?
+Message-ID:  <20050819094319.GW659@obiwan.tataz.chchile.org>
+In-Reply-To: <43049FB2.1030203@fsn.hu>
+References:  <43049FB2.1030203@fsn.hu>
+
+Next in thread | Previous in thread | Raw E-Mail | Index | Archive | Help
+
+Hi Attila,
+
+> I'm wondering about closing some information leaks in FreeBSD jails from 
+> the "outside world".
+> 
+> Not that critical (depends on the application), but a simple user, with 
+> restricted devfs in the jail (devfsrules_jail for example from 
+> /etc/defaults/devfs.rules) can figure out the following:
+> 
+> - network interfaces related data, via ifconfig, which contains 
+> everything, but the primary IP address of the interfaces. It seems that 
+> alias IPs can be viewed:
+> bge0: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> mtu 1500
+> 	options=1a<TXCSUM,VLAN_MTU,VLAN_HWTAGGING>
+> 	ether 00:12:79:3d:83:c2
+> 	media: Ethernet autoselect (100baseTX <full-duplex>)
+> 	status: active
+> lo0: flags=8049<UP,LOOPBACK,RUNNING,MULTICAST> mtu 16384
+> 	inet 127.0.0.2 netmask 0xff000000
+> 
+> - the arp table via arp, which does contain the above interface 
+> addresses. This can be used for example to detect other machines on the 
+> same subnet, which communicate with the host machine.
+> - full dmesg output after boot and the kernel buffer when it overflows 
+> (can contain sensitive information)
+> - information about geom providers (at least geom mirror list works)
+> - the list of the loaded kernel modules via kldstat
+> - some interesting information about the network related stuff via netstat
+> - information about configured swap space via swapinfo
+> - NFS related statistics via nfsstat
+> - a lot of interesting stuff via sysctl
+> 
+> and maybe more, I can't think of currently.
+> 
+> Are there any ways to close (some of) these?
+
+The original paper from phk@ and rwatson@ presenting jails let us
+sound this is a very neat concept.  While I agree this is worth adding
+restrictions or features where they are really needed, the jail
+framework tends towards being fairly intrusive in the system.
+
+Therefore, I think ``hacking'' the source for all the above situations
+is not a good idea, although I agree there may be a need for them.
+
+What I'm going to say is obvious for most people, but saying it may
+spur on people imagination :-).  BSD solutions are known to be smart,
+setting a bandage everywhere we seem to need one is not the appropriate
+way to go.  For example, it has been recently dicussed that it would be
+worth having virtual network stacks, in order to have the ability to
+multiplex M jails over N virtual network stacks.  The developpement of
+this doesn't even started on newer FreeBSD systems, but it seems
+the new upcoming routing code is going to be modified to handle
+multiple routing tables, in the same way as Linux does it.  Andre
+Oppermann is going to publish a paper about its intention towards
+FreeBSD routing code.  If you are interested in this, you may want to
+have a look at this (long) subthread [1].
+
+The problem is actually there are many ways to access kernel
+informations, and this is therefore a hard task to get a common
+security framework which would be simple to use for jail.
+
+At the moment, you might want to look at the MAC framework from the
+TrustedBSD project.  I've never used it but I think it may overcome
+at least some of your concerns.
+
+Regards,
+
+[1] http://lists.freebsd.org/pipermail/freebsd-net/2005-August/008027.html
+-- 
+Jeremie Le Hen
+< jeremie at le-hen dot org >< ttz at chchile dot org >
+
+
+Date:      Fri, 19 Aug 2005 15:10:15 +0200
+From:      Pawel Jakub Dawidek <pjd@FreeBSD.org>
+To:        Benjamin Lutz <benlutz@datacomm.ch>
+Cc:        freebsd-security@FreeBSD.org
+Subject:   Re: Closing information leaks in jails?
+Message-ID:  <20050819131015.GD21893@garage.freebsd.pl>
+In-Reply-To: <4304A6C6.6090006@datacomm.ch>
+References:  <43049FB2.1030203@fsn.hu> <4304A6C6.6090006@datacomm.ch>
+
+Next in thread | Previous in thread | Raw E-Mail | Index | Archive | Help
+
+
+--IDYEmSnFhs3mNXr+
+Content-Type: text/plain; charset=iso-8859-2
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Thu, Aug 18, 2005 at 05:18:30PM +0200, Benjamin Lutz wrote:
++> > - full dmesg output after boot and the kernel buffer when it overflows
++> > (can contain sensitive information)
++>=20
++> If it's sensitive in so far as it endangers the privacy of local
++> non-jailed users, I think that's a bug that'd need fixing.
+
+sysctl security.bsd.unprivileged_read_msgbuf=3D0
+
+--=20
+Pawel Jakub Dawidek                       http://www.wheel.pl
+pjd@FreeBSD.org                           http://www.FreeBSD.org
+FreeBSD committer                         Am I Evil? Yes, I Am!
+
+--IDYEmSnFhs3mNXr+
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (FreeBSD)
+
+iD8DBQFDBdo3ForvXbEpPzQRAjtBAJ9HyWFQme9OEANjWqFQ9smsdszBEQCfUIHk
+gONi4+qlH8AhGrGWiMNZNBI=
+=Q76R
+-----END PGP SIGNATURE-----
+
+--IDYEmSnFhs3mNXr+--
+
+
+	g
